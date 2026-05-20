@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
 import { useAdmin } from '../context/AdminContext'
 import { useAutoRefresh } from '../hooks/useAutoRefresh'
+import { formatDateTime } from '../utils/timezone'
 
 const TABS = [
   ['all', 'All'],
@@ -63,7 +64,7 @@ export default function SubmissionsPage() {
                   <h2 className="font-[Manrope] text-lg font-semibold text-slate-900">{submission.propertyName}</h2>
                   <p className="text-sm text-slate-500">{submission.taskTitle}</p>
                   <p className="mt-1 text-sm text-slate-500">
-                    {submission.workerName} • {submission.submittedAt}
+                    {submission.workerName} • {formatDateTime(submission.submittedAt)}
                   </p>
                 </div>
                 <StatusBadge status={submission.reviewStatus} />

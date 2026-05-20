@@ -50,7 +50,8 @@ export default function WorkerLoginPage() {
         return
       }
 
-      loginWorker(
+      // Login stores worker session and loads app settings (timezone).
+      await loginWorker(
         {
           id: user._id,
           name: user.name,

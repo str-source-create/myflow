@@ -8,23 +8,34 @@ import StatusBadge from '../components/StatusBadge'
 import TaskFormModal from '../components/TaskFormModal'
 import { apiRequest } from '../lib/api'
 import { useAdmin } from '../context/AdminContext'
+import { getTimezone } from '../utils/timezone'
 
 /**
  * Returns Monday for any date.
  */
 function getMonday(date) {
   const copy = new Date(date)
-  const day = copy.getDay() || 7
-  if (day !== 1) copy.setHours(-24 * (day - 1))
-  copy.setHours(0, 0, 0, 0)
+  const day = getWeekdayInTimezone(copy, getTimezone()) || 7
+  if (day !== 1) copy.setDate(copy.getDate() - (day - 1))
+  // Keep a stable midday anchor to avoid timezone boundary drift.
+  copy.setHours(12, 0, 0, 0)
   return copy
 }
 
+/** Returns weekday number (0=Sun..6=Sat) for a given timezone. */
+function getWeekdayInTimezone(date, timeZone) {
+  const short = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(date)
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return map[short] ?? 0
+}
+
 /**
- * Formats date to YYYY-MM-DD for API query/filter usage.
+ * Formats date to YYYY-MM-DD using LOCAL date parts.
+ * Never use toISOString() here — it converts to UTC and shifts the date
+ * for users in UTC+ timezones (e.g. local midnight May 18 = UTC May 17).
  */
 function formatDateKey(date) {
-  return date.toISOString().split('T')[0]
+  return date.toLocaleDateString('en-CA', { timeZone: getTimezone() })
 }
 
 /**
@@ -104,8 +115,9 @@ export default function CalendarPage() {
   const weekRangeLabel = useMemo(() => {
     const firstDay = weekDays[0]
     const lastDay = weekDays[6]
-    const firstPart = firstDay.toLocaleDateString([], { month: 'short', day: 'numeric' })
-    const lastPart = lastDay.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    // Calendar labels follow the selected app timezone for consistent admin view.
+    const firstPart = firstDay.toLocaleDateString([], { timeZone: getTimezone(), month: 'short', day: 'numeric' })
+    const lastPart = lastDay.toLocaleDateString([], { timeZone: getTimezone(), month: 'short', day: 'numeric' })
     return `${firstPart} - ${lastPart}`
   }, [weekDays])
 
@@ -303,7 +315,7 @@ export default function CalendarPage() {
               </th>
               {weekDays.map((day) => (
                 <th key={formatDateKey(day)} className="min-w-[120px] border-b border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-700">
-                  {day.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' })}
+                  {day.toLocaleDateString([], { timeZone: getTimezone(), weekday: 'short', month: 'numeric', day: 'numeric' })}
                 </th>
               ))}
             </tr>

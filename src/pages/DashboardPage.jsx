@@ -10,6 +10,7 @@ import StatusBadge from '../components/StatusBadge'
 import TaskCard from '../components/TaskCard'
 import { useAdmin } from '../context/AdminContext'
 import { useAutoRefresh } from '../hooks/useAutoRefresh'
+import { formatDateTime, getTodayString } from '../utils/timezone'
 
 export default function DashboardPage() {
   /**
@@ -21,8 +22,8 @@ export default function DashboardPage() {
   const [loading] = useState(false)
   const [error] = useState('')
 
-  // Use the browser-local current date key so the dashboard always reflects "today".
-  const today = new Date().toISOString().split('T')[0]
+  // Use the configured app timezone for the date key used by dashboard filtering.
+  const today = getTodayString()
   const todayTasks = useMemo(() => tasks.filter((task) => task.date === today), [tasks])
   const pendingSubmissions = useMemo(
     () => submissions.filter((submission) => submission.reviewStatus === 'pending_review'),
@@ -84,7 +85,7 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="font-[Manrope] text-base font-semibold text-slate-900">{submission.propertyName}</h3>
                   <p className="text-sm text-slate-500">
-                    {submission.workerName} • Submitted at {submission.submittedAt}
+                    {submission.workerName} • Submitted at {formatDateTime(submission.submittedAt)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

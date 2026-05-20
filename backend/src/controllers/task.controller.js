@@ -8,34 +8,10 @@ const ChecklistItem = require('../models/ChecklistItem.model')
 const Submission = require('../models/Submission.model')
 const Photo = require('../models/Photo.model')
 const Standard = require('../models/Standard.model')
+const PropertyChecklist = require('../models/PropertyChecklist.model')
 const User = require('../models/User.model')
 const sendResponse = require('../utils/sendResponse')
 const sendMail = require('../config/mail')
-
-const DEFAULT_CHECKLIST = [
-  { area: 'Kitchen',  title: 'Countertops cleaned',       required: true,  sortOrder: 1 },
-  { area: 'Kitchen',  title: 'Sink cleaned',              required: true,  sortOrder: 2 },
-  { area: 'Kitchen',  title: 'Fridge checked',            required: true,  sortOrder: 3 },
-  { area: 'Kitchen',  title: 'Microwave cleaned',         required: true,  sortOrder: 4 },
-  { area: 'Kitchen',  title: 'Trash removed',             required: true,  sortOrder: 5 },
-  { area: 'Bathroom', title: 'Toilet cleaned',            required: true,  sortOrder: 6 },
-  { area: 'Bathroom', title: 'Shower/tub cleaned',        required: true,  sortOrder: 7 },
-  { area: 'Bathroom', title: 'Sink cleaned',              required: true,  sortOrder: 8 },
-  { area: 'Bathroom', title: 'Mirror cleaned',            required: true,  sortOrder: 9 },
-  { area: 'Bathroom', title: 'Towels placed',             required: true,  sortOrder: 10 },
-  { area: 'Bathroom', title: 'Supplies restocked',        required: true,  sortOrder: 11 },
-  { area: 'Bedroom',  title: 'Beds made',                 required: true,  sortOrder: 12 },
-  { area: 'Bedroom',  title: '2 pillows placed',          required: true,  sortOrder: 13 },
-  { area: 'Bedroom',  title: 'Floors cleaned',            required: true,  sortOrder: 14 },
-  { area: 'Living',   title: 'Sofa arranged',             required: true,  sortOrder: 15 },
-  { area: 'Living',   title: 'Tables cleaned',            required: true,  sortOrder: 16 },
-  { area: 'Living',   title: 'Floors vacuumed',           required: true,  sortOrder: 17 },
-  { area: 'Basement', title: 'Pool table cleaned',        required: false, sortOrder: 18 },
-  { area: 'Basement', title: 'Cabinet organized',         required: false, sortOrder: 19 },
-  { area: 'Final',    title: 'All lights checked',        required: true,  sortOrder: 20 },
-  { area: 'Final',    title: 'Keys returned to cabinet',  required: true,  sortOrder: 21 },
-  { area: 'Final',    title: 'Property is guest-ready',   required: true,  sortOrder: 22 },
-]
 
 exports.getTasks = async (req, res, next) => {
   try {
@@ -75,24 +51,37 @@ exports.getTask = async (req, res, next) => {
 
 exports.createTask = async (req, res, next) => {
   try {
+    // Create the task first; checklist items are derived from property template.
     const task = await Task.create({ ...req.body, createdBy: req.user._id })
 
-    // Supports custom checklist builders while preserving a fallback template.
-    const requestedChecklist = Array.isArray(req.body.checklistItems) && req.body.checklistItems.length
-      ? req.body.checklistItems
-      : DEFAULT_CHECKLIST
+    // Load the saved checklist template for this property.
+    const propertyChecklist = await PropertyChecklist.findOne({ propertyId: task.propertyId })
 
-    // Auto-create checklist items for this task.
-    const checklistItems = requestedChecklist.map((item, index) => ({
-      ...item,
-      title: item.title || item.label,
-      sortOrder: Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : index + 1,
-      taskId: task._id,
-      propertyId: task.propertyId
-    }))
-    await ChecklistItem.insertMany(checklistItems)
+    // Generate task-specific checklist items from the property template.
+    if (propertyChecklist && Array.isArray(propertyChecklist.areas) && propertyChecklist.areas.length > 0) {
+      const checklistItems = []
 
-    return sendResponse(res, 201, true, 'Task created with checklist', task)
+      propertyChecklist.areas.forEach((areaObj, areaIndex) => {
+        const sortedItems = [...(areaObj.items || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        sortedItems.forEach((item, itemIndex) => {
+          checklistItems.push({
+            taskId: task._id,
+            propertyId: task.propertyId,
+            area: areaObj.area,
+            title: item.label,
+            required: item.required,
+            completed: false,
+            sortOrder: areaIndex * 100 + itemIndex,
+          })
+        })
+      })
+
+      if (checklistItems.length > 0) {
+        await ChecklistItem.insertMany(checklistItems)
+      }
+    }
+
+    return sendResponse(res, 201, true, 'Task created', task)
   } catch (err) { next(err) }
 }
 
@@ -139,13 +128,20 @@ exports.submitTask = async (req, res, next) => {
     const task = await Task.findById(taskId).populate('propertyId', 'name')
     if (!task) return sendResponse(res, 404, false, 'Task not found')
 
+    // Only assigned workers may submit this task.
+    const isAssigned = (task.assignedWorkerIds || []).some(
+      (id) => String(id) === String(req.user._id),
+    )
+    if (!isAssigned) {
+      return sendResponse(res, 403, false, 'You are not assigned to this task')
+    }
+
     // Count checklist completion
     const allItems      = await ChecklistItem.find({ taskId })
     const completedItems= allItems.filter(i => i.completed).length
 
     // Count distinct standards that have at least one proof photo.
-    // Using Photo.distinct instead of countDocuments prevents a worker uploading
-    // multiple photos for the same standard from inflating the count.
+    // Using Photo.distinct prevents duplicate uploads from inflating coverage.
     const standards = await Standard.find({ propertyId: task.propertyId._id })
     const coveredStandardIds = await Photo.distinct('standardId', {
       taskId,
@@ -165,7 +161,9 @@ exports.submitTask = async (req, res, next) => {
       standardPhotosTotal: standards.length,
       cleanerNotes: cleanerNotes || '',
       issueFound: issueFound || false,
-      issueDescription: issueDescription || ''
+      issueDescription: issueDescription || '',
+      reviewStatus: 'pending_review',
+      submittedAt: new Date(),
     })
 
     const endedAt = new Date()
@@ -196,7 +194,11 @@ exports.submitTask = async (req, res, next) => {
     })
 
     return sendResponse(res, 200, true, 'Task submitted successfully', { submission, task: updatedTask })
-  } catch (err) { next(err) }
+  } catch (err) {
+    // Log full error to simplify production debugging of missing submissions.
+    console.error('submitTask error:', err)
+    next(err)
+  }
 }
 
 exports.approveTask = async (req, res, next) => {

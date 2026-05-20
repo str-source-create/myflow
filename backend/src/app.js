@@ -61,6 +61,8 @@ app.use('/api/properties',  require('./routes/property.routes'))
 app.use('/api/standards',   require('./routes/standard.routes'))
 app.use('/api/tasks',       require('./routes/task.routes'))
 app.use('/api/checklist',   require('./routes/checklist.routes'))
+// Property checklist templates are per-property blueprints for future tasks.
+app.use('/api/property-checklist', require('./routes/propertyChecklist.routes'))
 app.use('/api/photos',      require('./routes/photo.routes'))
 app.use('/api/submissions', require('./routes/submission.routes'))
 app.use('/api/attendance',  require('./routes/attendance.routes'))

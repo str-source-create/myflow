@@ -3,17 +3,19 @@
  * Admin worker management page with:
  *  - Edit modal (name, email, phone)
  *  - Deactivate worker (soft-delete)
+ *  - Reactivate worker
  *  - Reset password (generates temp password and shows it to admin)
  */
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ConfirmModal from '../components/ConfirmModal'
 import EmptyState from '../components/EmptyState'
 import WorkerCard from '../components/WorkerCard'
 import { useAdmin } from '../context/AdminContext'
 
 export default function WorkersPage() {
   const navigate = useNavigate()
-  const { workers, updateWorker, deactivateWorker, resetWorkerPassword } = useAdmin()
+  const { workers, updateWorker, deactivateWorker, reactivateWorker, resetWorkerPassword } = useAdmin()
   const [query, setQuery] = useState('')
 
   // Edit modal state
@@ -25,6 +27,8 @@ export default function WorkersPage() {
   // Temp password display state (shown after reset)
   const [tempPassword, setTempPassword] = useState('')
   const [tempPasswordWorkerName, setTempPasswordWorkerName] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [actionTarget, setActionTarget] = useState(null)
 
   const filtered = useMemo(
     () =>
@@ -63,26 +67,46 @@ export default function WorkersPage() {
     }
   }
 
-  /** Deactivates a worker after confirmation. */
-  async function handleDeactivate(workerId) {
-    const worker = workers.find((w) => w.id === workerId)
-    if (!confirm(`Deactivate ${worker?.name || 'this worker'}? They will no longer be able to log in.`)) return
-    try {
-      await deactivateWorker(workerId)
-    } catch (err) {
-      alert(err.message || 'Failed to deactivate worker.')
-    }
+  /** Opens a confirmation modal for worker account actions. */
+  function openAction(type, workerId) {
+    const worker = workers.find((entry) => entry.id === workerId)
+    if (!worker) return
+    setActionError('')
+    setActionTarget({ type, worker })
   }
 
-  /** Resets a worker's password and shows the temporary password to the admin. */
-  async function handleResetPassword(worker) {
-    if (!confirm(`Reset password for ${worker.name}? A temporary password will be generated.`)) return
+  /** Deactivates a worker using ConfirmModal (no browser confirm). */
+  function handleDeactivate(workerId) {
+    openAction('deactivate', workerId)
+  }
+
+  /** Reactivates worker using ConfirmModal (no browser confirm). */
+  function handleReactivate(workerId) {
+    openAction('reactivate', workerId)
+  }
+
+  /** Resets a worker password and shows temporary password after confirmation. */
+  async function handleConfirmAction() {
+    if (!actionTarget) return
+
     try {
-      const data = await resetWorkerPassword(worker.id)
-      setTempPasswordWorkerName(worker.name)
-      setTempPassword(data.tempPassword || '')
+      if (actionTarget.type === 'deactivate') {
+        await deactivateWorker(actionTarget.worker.id)
+      }
+
+      if (actionTarget.type === 'reactivate') {
+        await reactivateWorker(actionTarget.worker.id)
+      }
+
+      if (actionTarget.type === 'reset_password') {
+        const data = await resetWorkerPassword(actionTarget.worker.id)
+        setTempPasswordWorkerName(actionTarget.worker.name)
+        setTempPassword(data.tempPassword || '')
+      }
+
+      setActionTarget(null)
     } catch (err) {
-      alert(err.message || 'Failed to reset password.')
+      setActionError(err.message || 'Failed to complete action.')
     }
   }
 
@@ -106,6 +130,8 @@ export default function WorkersPage() {
         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base"
       />
 
+      {actionError ? <p className="text-sm font-medium text-red-600">{actionError}</p> : null}
+
       {filtered.length === 0 ? (
         <EmptyState icon="👤" title="No workers found" message="Try a different search." />
       ) : (
@@ -117,6 +143,7 @@ export default function WorkersPage() {
               onViewTasks={() => navigate(`/admin/tasks?workerId=${worker.id}`)}
               onEdit={handleEdit}
               onDeactivate={handleDeactivate}
+              onReactivate={handleReactivate}
             />
           ))}
         </div>
@@ -163,7 +190,7 @@ export default function WorkersPage() {
                 type="button"
                 onClick={() => {
                   setEditWorker(null)
-                  handleResetPassword(editWorker)
+                  openAction('reset_password', editWorker.id)
                 }}
                 className="w-full min-h-[44px] rounded-xl border border-amber-400 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-50"
               >
@@ -213,6 +240,30 @@ export default function WorkersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={Boolean(actionTarget)}
+        title={
+          actionTarget?.type === 'deactivate'
+            ? 'Deactivate Worker'
+            : actionTarget?.type === 'reactivate'
+              ? 'Reactivate Worker'
+              : 'Reset Password'
+        }
+        message={
+          actionTarget?.type === 'deactivate'
+            ? `Deactivate ${actionTarget.worker.name}? They will no longer be able to log in.`
+            : actionTarget?.type === 'reactivate'
+              ? `Reactivate ${actionTarget.worker.name}? They will be able to log in again.`
+              : `Reset password for ${actionTarget?.worker?.name || 'this worker'}? A temporary password will be generated.`
+        }
+        confirmLabel={actionTarget?.type === 'reset_password' ? 'Generate Password' : 'Confirm'}
+        confirmDanger={actionTarget?.type === 'deactivate'}
+        onCancel={() => setActionTarget(null)}
+        onConfirm={() => {
+          void handleConfirmAction()
+        }}
+      />
     </div>
   )
 }

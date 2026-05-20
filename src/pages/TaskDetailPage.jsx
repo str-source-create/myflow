@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import StatusBadge from '../components/StatusBadge'
 import { useAdmin } from '../context/AdminContext'
+import { formatTime } from '../utils/timezone'
 
 export default function TaskDetailPage() {
   const { id } = useParams()
@@ -56,8 +57,9 @@ export default function TaskDetailPage() {
         <Row label="Status History" value={`${task.status} • ${task.statusChangedAt || 'n/a'}`} />
         {task.startedAt ? (
           <div className="space-y-1 text-sm text-slate-600">
-            <p>Started: {new Date(task.startedAt).toLocaleTimeString()}</p>
-            {task.endedAt ? <p>Ended: {new Date(task.endedAt).toLocaleTimeString()}</p> : null}
+            {/* Show server timestamps in the configured app timezone. */}
+            <p>Started: {formatTime(task.startedAt)}</p>
+            {task.endedAt ? <p>Ended: {formatTime(task.endedAt)}</p> : null}
             {task.durationSeconds ? (
               <p className="font-medium">
                 Total: {Math.floor(task.durationSeconds / 3600)}h {Math.floor((task.durationSeconds % 3600) / 60)}m

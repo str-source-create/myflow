@@ -5,13 +5,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { useAdmin } from '../context/AdminContext'
+import { formatDateTime as formatDateTimeWithTimezone } from '../utils/timezone'
 
 /**
  * Formats date-time safely for table display.
  */
 function formatDateTime(value) {
-  if (!value) return '--'
-  return new Date(value).toLocaleString()
+  // Render attendance timestamps using the app-configured timezone.
+  return value ? formatDateTimeWithTimezone(value) : '--'
 }
 
 /**

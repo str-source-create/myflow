@@ -85,6 +85,36 @@ exports.deactivateUser = async (req, res, next) => {
 }
 
 /**
+ * changeMyPassword — lets an authenticated worker change their own password.
+ * Requires currentPassword for verification and enforces minimum length.
+ */
+exports.changeMyPassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    if (!currentPassword || !newPassword) {
+      return sendResponse(res, 400, false, 'currentPassword and newPassword are required')
+    }
+    if (newPassword.length < 8) {
+      return sendResponse(res, 400, false, 'New password must be at least 8 characters')
+    }
+    if (newPassword === currentPassword) {
+      return sendResponse(res, 400, false, 'New password must differ from the current password')
+    }
+
+    // Re-fetch from DB to get the password hash (req.user has it stripped via toJSON)
+    const user = await require('../models/User.model').findById(req.user._id).select('+password')
+    if (!user) return sendResponse(res, 404, false, 'User not found')
+
+    const isMatch = await user.comparePassword(currentPassword)
+    if (!isMatch) return sendResponse(res, 400, false, 'Current password is incorrect')
+
+    user.password = newPassword // pre-save hook will bcrypt-hash this
+    await user.save()
+    return sendResponse(res, 200, true, 'Password changed successfully')
+  } catch (err) { next(err) }
+}
+
+/**
  * resetPassword — generates a temporary password and emails it to the worker.
  * Also returns the temp password to the admin so they can share it verbally.
  */

@@ -11,6 +11,7 @@ import PhotoLightbox from '../components/PhotoLightbox'
 import StatusBadge from '../components/StatusBadge'
 import { useAdmin } from '../context/AdminContext'
 import { apiRequest } from '../lib/api'
+import { formatDateTime, formatTime } from '../utils/timezone'
 
 /**
  * SubmissionReviewPage loads a submission record, task evidence photos, and manager review controls.
@@ -97,8 +98,9 @@ export default function SubmissionReviewPage() {
           <p className="text-sm text-slate-700">Notes: {submission.cleanerNotes}</p>
           {task.startedAt ? (
             <div className="space-y-1 text-sm text-slate-600">
-              <p>Started: {new Date(task.startedAt).toLocaleTimeString()}</p>
-              {task.endedAt ? <p>Ended: {new Date(task.endedAt).toLocaleTimeString()}</p> : null}
+              {/* Task start/end times respect the admin-selected timezone. */}
+              <p>Started: {formatTime(task.startedAt)}</p>
+              {task.endedAt ? <p>Ended: {formatTime(task.endedAt)}</p> : null}
               {task.durationSeconds ? (
                 <p className="font-medium">
                   Total: {Math.floor(task.durationSeconds / 3600)}h {Math.floor((task.durationSeconds % 3600) / 60)}m
@@ -209,7 +211,7 @@ export default function SubmissionReviewPage() {
       <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white p-3 md:left-60">
         {readOnly ? (
           <p className="text-sm text-slate-600">
-            Reviewed by {submission.reviewMeta?.reviewedBy || 'Admin'} at {submission.reviewMeta?.reviewedAt || 'n/a'}
+            Reviewed by {submission.reviewMeta?.reviewedBy || 'Admin'} at {formatDateTime(submission.reviewMeta?.reviewedAt)}
           </p>
         ) : (
           <div className="flex gap-2">

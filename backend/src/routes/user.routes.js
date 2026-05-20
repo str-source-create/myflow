@@ -9,6 +9,7 @@ const { requireAdmin } = require('../middlewares/role.middleware')
 const ctrl = require('../controllers/user.controller')
 
 router.get('/me', protect, ctrl.getMe)
+router.patch('/me/password', protect, ctrl.changeMyPassword)
 router.get('/',   protect, requireAdmin, ctrl.getUsers)
 router.get('/:id',protect, requireAdmin, ctrl.getUser)
 router.post('/',  protect, requireAdmin, ctrl.createUser)

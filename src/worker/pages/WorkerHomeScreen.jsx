@@ -6,9 +6,12 @@
 import TaskCard from '../components/TaskCard'
 import { useWorker } from '../context/WorkerContext'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
+import { getTimezone, getTodayString } from '../../utils/timezone'
 
 function getReadableDate() {
-  return new Date().toLocaleDateString([], {
+  // Header date must follow the configured app timezone.
+  return new Date().toLocaleDateString('en-US', {
+    timeZone: getTimezone(),
     weekday: 'long',
     month: 'short',
     day: 'numeric',
@@ -21,7 +24,8 @@ export default function WorkerHomeScreen() {
   // Poll for new assignments and status updates every 30 seconds.
   useAutoRefresh(refreshTasks, 30_000)
 
-  const todayKey = new Date().toISOString().split('T')[0]
+  // Use shared timezone-aware key so today's tasks match admin settings timezone.
+  const todayKey = getTodayString()
   const todayTasks = tasks.filter((task) => task.date === todayKey)
 
   const inProgressCount = todayTasks.filter((task) => task.status === 'in_progress').length

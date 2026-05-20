@@ -40,7 +40,7 @@ function TaskTabs({ taskId, activeTab }) {
   )
 }
 
-const AREA_ORDER = ['Kitchen', 'Bathroom', 'Bedroom', 'Living', 'Basement', 'Final']
+const AREA_ORDER_HINT = ['Kitchen', 'Bedrooms', 'Bathroom', 'All Areas — Sweeping & Dusting', 'Outdoor — Porch / Patio / Spa', 'Final Check']
 
 export default function WorkerChecklistPage() {
   const { id } = useParams()
@@ -65,11 +65,22 @@ export default function WorkerChecklistPage() {
     pendingItems.has(item.id) ? { ...item, completed: !item.completed } : item,
   )
 
-  const grouped = AREA_ORDER.reduce((acc, area) => {
-    const items = optimisticItems.filter((item) => item.area === area)
-    if (items.length) acc[area] = items
+  // Group by actual task area names so custom property areas are never hidden.
+  const grouped = optimisticItems.reduce((acc, item) => {
+    if (!acc[item.area]) acc[item.area] = []
+    acc[item.area].push(item)
     return acc
   }, {})
+
+  // Keep common areas in a predictable order, then append any custom areas.
+  const orderedAreaNames = Object.keys(grouped).sort((a, b) => {
+    const ia = AREA_ORDER_HINT.indexOf(a)
+    const ib = AREA_ORDER_HINT.indexOf(b)
+    if (ia === -1 && ib === -1) return a.localeCompare(b)
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
 
   const completed = optimisticItems.filter((item) => item.completed).length
   const total = optimisticItems.length
@@ -111,11 +122,11 @@ export default function WorkerChecklistPage() {
       </section>
 
       <section className="space-y-4">
-        {Object.entries(grouped).map(([area, items]) => (
+        {orderedAreaNames.map((area) => (
           <article key={area} className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="font-[Manrope] text-base font-semibold text-slate-900">{area}</h2>
             <div className="space-y-2">
-              {items.map((item) => (
+              {grouped[area].map((item) => (
                 <ChecklistItem
                   key={item.id}
                   item={item}

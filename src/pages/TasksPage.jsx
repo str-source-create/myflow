@@ -48,10 +48,11 @@ export default function TasksPage() {
         <h1 className="font-[Manrope] text-2xl font-bold text-slate-900">Tasks</h1>
         <button
           type="button"
-          onClick={() => navigate('/admin/tasks/create')}
+          // Task creation is centralized in calendar so date/property context is explicit.
+          onClick={() => navigate('/admin/calendar')}
           className="min-h-[44px] rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white"
         >
-          Create Task
+          Create Task in Calendar
         </button>
       </div>
 

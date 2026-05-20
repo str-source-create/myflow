@@ -26,6 +26,8 @@ export default function AddPropertyPage() {
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showChecklistPrompt, setShowChecklistPrompt] = useState(false)
+  const [newPropertyId, setNewPropertyId] = useState('')
 
   function handleChange(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -42,7 +44,9 @@ export default function AddPropertyPage() {
     try {
       const created = await addProperty({ ...form })
       setToast('Property saved!')
-      setTimeout(() => navigate(`/admin/properties/${created.id}`), 700)
+      // Prompt checklist setup immediately after property creation.
+      setNewPropertyId(created.id)
+      setShowChecklistPrompt(true)
     } catch (err) {
       setError(err.message || 'Failed to save property.')
     } finally {
@@ -112,6 +116,36 @@ export default function AddPropertyPage() {
           Cancel
         </button>
       </div>
+
+      {showChecklistPrompt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+              <i className="ti ti-circle-check text-2xl text-green-600" />
+            </div>
+            <h2 className="mb-2 text-center font-[Manrope] text-lg font-bold text-slate-900">Property saved!</h2>
+            <p className="mb-6 text-center text-sm text-slate-500">
+              Would you like to set up the cleaning checklist for this property now?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/admin/properties/${newPropertyId}/checklist`)}
+                className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700"
+              >
+                Set Up Checklist Now
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/properties')}
+                className="w-full rounded-xl py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
+              >
+                Skip for now — do it later
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

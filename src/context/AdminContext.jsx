@@ -94,14 +94,25 @@ function normalizeTask(task) {
  * Normalizes submission for existing review/list pages.
  */
 function normalizeSubmission(submission) {
+  // Guard against malformed/null API records.
+  if (!submission) return null
+
+  // Populated refs may be null (e.g., referenced doc deleted), so guard each one.
+  const taskObj = submission.taskId && typeof submission.taskId === 'object' ? submission.taskId : null
+  const propertyObj = submission.propertyId && typeof submission.propertyId === 'object' ? submission.propertyId : null
+  const workerObj = submission.workerId && typeof submission.workerId === 'object' ? submission.workerId : null
+  const reviewedByObj = submission.reviewedBy && typeof submission.reviewedBy === 'object'
+    ? submission.reviewedBy
+    : null
+
   return {
     id: submission._id,
-    taskId: typeof submission.taskId === 'object' ? submission.taskId._id : submission.taskId,
-    taskTitle: typeof submission.taskId === 'object' ? submission.taskId.title : '',
-    propertyName: typeof submission.propertyId === 'object' ? submission.propertyId.name : '',
-    workerId: typeof submission.workerId === 'object' ? submission.workerId._id : submission.workerId,
-    workerName: typeof submission.workerId === 'object' ? submission.workerId.name : '',
-    date: typeof submission.taskId === 'object' ? submission.taskId.date : '',
+    taskId: taskObj?._id || submission.taskId || null,
+    taskTitle: taskObj?.title || 'Cleaning Task',
+    propertyName: propertyObj?.name || 'Property',
+    workerId: workerObj?._id || submission.workerId || null,
+    workerName: workerObj?.name || 'Worker',
+    date: taskObj?.date || '',
     checklistCompleted: submission.checklistCompleted || 0,
     checklistTotal: submission.checklistTotal || 0,
     standardPhotosUploaded: submission.standardPhotosUploaded || 0,
@@ -115,9 +126,9 @@ function normalizeSubmission(submission) {
     issueDescription: submission.issueDescription || '',
     reviewStatus: submission.reviewStatus || 'pending_review',
     submittedAt: submission.submittedAt,
-    reviewMeta: submission.reviewedBy
+    reviewMeta: reviewedByObj
       ? {
-          reviewedBy: typeof submission.reviewedBy === 'object' ? submission.reviewedBy.name : 'Admin',
+          reviewedBy: reviewedByObj.name,
           reviewedAt: submission.reviewedAt,
         }
       : null,
@@ -168,26 +179,62 @@ export function AdminProvider({ children }) {
 
     setLoading(true)
     try {
-      const [propertiesRes, workersRes, tasksRes, submissionsRes, settingsRes] = await Promise.all([
-        apiRequest('/properties', {}, 'admin'),
-        apiRequest('/users?role=worker', {}, 'admin'),
-        apiRequest('/tasks', {}, 'admin'),
-        apiRequest('/submissions', {}, 'admin'),
-        apiRequest('/settings', {}, 'admin').catch(() => ({ data: null })),
-      ])
+      // Fetch each resource independently so one API failure never blocks submissions.
+      let propertiesData = []
+      let workersData = []
+      let tasksData = []
+      let submissionsData = []
+      let settingsData = null
 
-      // Persist settings to localStorage so timezone utilities can read them synchronously
-      if (settingsRes.data) {
-        setSettings(settingsRes.data)
-        localStorage.setItem('cf_settings', JSON.stringify(settingsRes.data))
+      try {
+        const propertiesRes = await apiRequest('/properties', {}, 'admin')
+        propertiesData = propertiesRes.data || []
+      } catch (err) {
+        console.error('Failed to fetch properties:', err)
       }
 
-      const propertyItems = propertiesRes.data || []
+      try {
+        const workersRes = await apiRequest('/users?role=worker', {}, 'admin')
+        workersData = workersRes.data || []
+      } catch (err) {
+        console.error('Failed to fetch workers:', err)
+      }
+
+      try {
+        const tasksRes = await apiRequest('/tasks', {}, 'admin')
+        tasksData = tasksRes.data || []
+      } catch (err) {
+        console.error('Failed to fetch tasks:', err)
+      }
+
+      try {
+        const submissionsRes = await apiRequest('/submissions', {}, 'admin')
+        submissionsData = submissionsRes.data || []
+      } catch (err) {
+        console.error('Failed to fetch submissions:', err)
+      }
+
+      try {
+        const settingsRes = await apiRequest('/settings', {}, 'admin')
+        settingsData = settingsRes.data || null
+      } catch (err) {
+        console.warn('Could not load settings (non-fatal):', err?.message)
+      }
+
+      // Persist settings to localStorage so timezone utilities can read them synchronously
+      if (settingsData) {
+        setSettings(settingsData)
+        localStorage.setItem('cf_settings', JSON.stringify(settingsData))
+      }
+
+      const propertyItems = propertiesData || []
 
       // Fetch standards for each property so existing pages continue to render nested standards.
+      // Each fetch is individually guarded so a single failing property never aborts the whole refresh.
       const standardsByProperty = await Promise.all(
         propertyItems.map(async (property) => {
           const standardsRes = await apiRequest(`/standards/property/${property._id}`, {}, 'admin')
+            .catch(() => ({ data: [] }))
           return {
             propertyId: property._id,
             standards: (standardsRes.data || []).map(normalizeStandard),
@@ -198,9 +245,9 @@ export function AdminProvider({ children }) {
       const standardsMap = new Map(standardsByProperty.map((item) => [item.propertyId, item.standards]))
 
       setProperties(propertyItems.map((item) => normalizeProperty(item, standardsMap.get(item._id) || [])))
-      setWorkers((workersRes.data || []).map(normalizeWorker))
-      setTasks((tasksRes.data || []).map(normalizeTask))
-      setSubmissions((submissionsRes.data || []).map(normalizeSubmission))
+      setWorkers((workersData || []).map(normalizeWorker))
+      setTasks((tasksData || []).map(normalizeTask))
+      setSubmissions((submissionsData || []).map(normalizeSubmission).filter(Boolean))
     } finally {
       setLoading(false)
     }
@@ -413,20 +460,15 @@ export function AdminProvider({ children }) {
   }
 
   /**
-   * Creates a task with optional custom checklist items.
+   * Creates a task; checklist items are generated server-side from property template.
    */
   async function addTask(data) {
-    const payload = {
-      ...data,
-      checklistItems: data.checklistItems,
-    }
-
     const res = await apiRequest(
       '/tasks',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(data),
       },
       'admin',
     )
@@ -545,6 +587,20 @@ export function AdminProvider({ children }) {
   }
 
   /**
+   * Reactivates a previously deactivated worker — sets active: true on the server.
+   */
+  async function reactivateWorker(id) {
+    const res = await apiRequest(
+      `/users/${id}`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: true }) },
+      'admin',
+    )
+    const updated = normalizeWorker(res.data)
+    setWorkers((prev) => prev.map((w) => (w.id === id ? updated : w)))
+    return updated
+  }
+
+  /**
    * Resets a worker's password to a server-generated temporary password.
    * Returns { tempPassword } so the admin can display it.
    */
@@ -601,6 +657,7 @@ export function AdminProvider({ children }) {
       addWorker,
       updateWorker,
       deactivateWorker,
+      reactivateWorker,
       resetWorkerPassword,
       updateSettings,
     }),

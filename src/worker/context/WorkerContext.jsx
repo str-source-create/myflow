@@ -123,6 +123,21 @@ export function WorkerProvider({ children }) {
   const [loadingTasks, setLoadingTasks] = useState(false)
 
   /**
+   * Loads shared app settings (including timezone) for worker pages.
+   */
+  const loadAppSettings = useCallback(async () => {
+    try {
+      const res = await apiRequest('/settings', {}, 'worker')
+      if (res.data) {
+        localStorage.setItem('cf_settings', JSON.stringify(res.data))
+      }
+    } catch (err) {
+      // Non-fatal fallback: timezone utility will use browser timezone.
+      console.warn('Could not load app settings:', err?.message)
+    }
+  }, [])
+
+  /**
    * Hydrates worker tasks with checklist, standards, photos, and submission data.
    */
   const refreshTasks = useCallback(async () => {
@@ -169,15 +184,23 @@ export function WorkerProvider({ children }) {
     })
   }, [refreshTasks])
 
+  useEffect(() => {
+    // Restore settings for persisted sessions so worker timezone is correct after reload.
+    if (localStorage.getItem('cf_worker_token')) {
+      void loadAppSettings()
+    }
+  }, [loadAppSettings])
+
   /**
    * Stores worker identity and token after successful login.
    */
-  function loginWorker(user, token) {
+  async function loginWorker(user, token) {
     setCurrentUser(user)
     localStorage.setItem('cf_worker_user', JSON.stringify(user))
     if (token) {
       localStorage.setItem('cf_worker_token', token)
     }
+    await loadAppSettings()
   }
 
   /**

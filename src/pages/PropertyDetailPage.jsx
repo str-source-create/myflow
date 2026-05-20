@@ -1,13 +1,14 @@
 /**
  * PropertyDetailPage.jsx
- * Displays property details with persisted standards and reference images.
+ * Displays property details with standards and the property checklist entry point.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
 import { useAdmin } from '../context/AdminContext'
+import { apiRequest } from '../lib/api'
 
 export default function PropertyDetailPage() {
   const { id } = useParams()
@@ -15,9 +16,23 @@ export default function PropertyDetailPage() {
   const { properties, deleteProperty, deleteStandard } = useAdmin()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [stdDeleteId, setStdDeleteId] = useState(null)
+  const [checklistData, setChecklistData] = useState(null)
 
   // TODO: replace with API call
   const property = useMemo(() => properties.find((item) => item.id === id), [properties, id])
+
+  useEffect(() => {
+    if (!property?.id) return
+
+    // Checklist preview is non-blocking for this page, so failures stay silent.
+    apiRequest(`/property-checklist/property/${property.id}`, {}, 'admin')
+      .then((res) => setChecklistData(res.data))
+      .catch(() => {})
+  }, [property?.id])
+
+  const checklistAreas = checklistData?.areas?.map((area) => area.area) || []
+  const checklistAreaCount = checklistAreas.length
+  const checklistItemCount = checklistData?.areas?.reduce((sum, area) => sum + area.items.length, 0) || 0
 
   if (!property) {
     return <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">Property not found.</div>
@@ -38,6 +53,37 @@ export default function PropertyDetailPage() {
         <Info label="Parking Notes" value={property.parkingNotes || '-'} />
         <Info label="Cleaning Notes" value={property.cleaningNotes || '-'} />
         <Info label="Important Notes" value={property.importantNotes || '-'} />
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-[Manrope] text-xl font-bold text-slate-900">Cleaning Checklist</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {checklistItemCount > 0
+                ? `${checklistItemCount} items across ${checklistAreaCount} areas`
+                : 'No checklist set up yet — tasks will have an empty checklist'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/admin/properties/${property.id}/checklist`)}
+            className="min-h-[44px] rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700"
+          >
+            <i className="ti ti-clipboard-list" />{' '}
+            {checklistItemCount > 0 ? 'Edit Checklist' : 'Set Up Checklist'}
+          </button>
+        </div>
+
+        {checklistAreas.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {checklistAreas.map((area) => (
+              <span key={area} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
+                {area}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <div className="flex flex-wrap gap-2">

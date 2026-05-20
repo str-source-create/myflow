@@ -1,38 +1,11 @@
 /**
  * TaskFormModal.jsx
  * Reusable create/edit task modal for calendar interactions.
+ * Checklist items are auto-generated from the selected property's template.
  */
 import { useEffect, useState } from 'react'
 import ConfirmModal from './ConfirmModal'
-
-const AREA_ORDER = ['Kitchen', 'Bathroom', 'Bedroom', 'Living', 'Final']
-
-const DEFAULT_CHECKLIST = [
-  { id: 'k1', area: 'Kitchen', title: 'Counters wiped', required: true, selected: true, custom: false },
-  { id: 'k2', area: 'Kitchen', title: 'Sink cleaned', required: true, selected: true, custom: false },
-  { id: 'k3', area: 'Kitchen', title: 'Dishes checked', required: true, selected: true, custom: false },
-  { id: 'k4', area: 'Kitchen', title: 'Trash removed', required: true, selected: true, custom: false },
-  { id: 'b1', area: 'Bathroom', title: 'Toilet cleaned', required: true, selected: true, custom: false },
-  { id: 'b2', area: 'Bathroom', title: 'Shower/tub cleaned', required: true, selected: true, custom: false },
-  { id: 'b3', area: 'Bathroom', title: 'Towels placed', required: true, selected: true, custom: false },
-  { id: 'b4', area: 'Bathroom', title: 'Supplies restocked', required: true, selected: true, custom: false },
-  { id: 'bd1', area: 'Bedroom', title: 'Beds made', required: true, selected: true, custom: false },
-  { id: 'bd2', area: 'Bedroom', title: 'Linens checked', required: true, selected: true, custom: false },
-  { id: 'bd3', area: 'Bedroom', title: 'Floors cleaned', required: true, selected: true, custom: false },
-  { id: 'l1', area: 'Living', title: 'Surfaces wiped', required: true, selected: true, custom: false },
-  { id: 'l2', area: 'Living', title: 'Furniture reset', required: true, selected: true, custom: false },
-  { id: 'l3', area: 'Living', title: 'Floors cleaned', required: true, selected: true, custom: false },
-  { id: 'f1', area: 'Final', title: 'Lights off', required: true, selected: true, custom: false },
-  { id: 'f2', area: 'Final', title: 'Doors/windows locked', required: true, selected: true, custom: false },
-  { id: 'f3', area: 'Final', title: 'Keys returned', required: true, selected: true, custom: false },
-]
-
-/**
- * Generates stable local ids for custom checklist rows.
- */
-function makeLocalId(prefix) {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-}
+import { apiRequest } from '../lib/api'
 
 /**
  * Creates editable modal form state from selected task/cell context.
@@ -47,6 +20,7 @@ function buildInitialForm({ selectedTask, selectedCell }) {
     endTime: selectedTask?.endTime || '14:00',
     priority: selectedTask?.priority || 'medium',
     assignedWorkerIds: selectedTask?.assignedWorkerIds || [],
+    taskLeadId: selectedTask?.taskLeadId || '',
     managerNotes: selectedTask?.managerNotes || '',
   }
 }
@@ -63,7 +37,7 @@ export default function TaskFormModal({
   onOpenDetails,
 }) {
   const [form, setForm] = useState(buildInitialForm({ selectedTask, selectedCell }))
-  const [checklist, setChecklist] = useState(DEFAULT_CHECKLIST)
+  const [propertyChecklist, setPropertyChecklist] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -71,66 +45,37 @@ export default function TaskFormModal({
   useEffect(() => {
     if (open) {
       setForm(buildInitialForm({ selectedTask, selectedCell }))
-      setChecklist(DEFAULT_CHECKLIST)
       setError('')
     }
   }, [open, selectedTask, selectedCell])
 
-  /**
-   * Toggles whether a checklist row is included for task creation.
-   */
-  function toggleChecklistSelected(itemId) {
-    setChecklist((prev) => prev.map((item) => (item.id === itemId ? { ...item, selected: !item.selected } : item)))
-  }
+  useEffect(() => {
+    if (!open || !form.propertyId) {
+      setPropertyChecklist(null)
+      return
+    }
 
-  /**
-   * Toggles required state for checklist row.
-   */
-  function toggleChecklistRequired(itemId) {
-    setChecklist((prev) => prev.map((item) => (item.id === itemId ? { ...item, required: !item.required } : item)))
-  }
-
-  /**
-   * Updates checklist row label.
-   */
-  function updateChecklistTitle(itemId, title) {
-    setChecklist((prev) => prev.map((item) => (item.id === itemId ? { ...item, title } : item)))
-  }
-
-  /**
-   * Adds custom checklist row under selected area group.
-   */
-  function addCustomChecklistItem(area) {
-    setChecklist((prev) => [
-      ...prev,
-      {
-        id: makeLocalId('custom'),
-        area,
-        title: '',
-        required: true,
-        selected: true,
-        custom: true,
-      },
-    ])
-  }
-
-  /**
-   * Removes a custom checklist row.
-   */
-  function removeCustomChecklistItem(itemId) {
-    setChecklist((prev) => prev.filter((item) => item.id !== itemId))
-  }
+    // Preview the checklist template that will be auto-copied on task creation.
+    apiRequest(`/property-checklist/property/${form.propertyId}`, {}, 'admin')
+      .then((res) => setPropertyChecklist(res.data || null))
+      .catch(() => setPropertyChecklist(null))
+  }, [open, form.propertyId])
 
   /**
    * Toggles selected worker for task assignment.
    */
   function toggleWorker(workerId) {
-    setForm((prev) => ({
-      ...prev,
-      assignedWorkerIds: prev.assignedWorkerIds.includes(workerId)
+    setForm((prev) => {
+      const nextAssigned = prev.assignedWorkerIds.includes(workerId)
         ? prev.assignedWorkerIds.filter((id) => id !== workerId)
-        : [...prev.assignedWorkerIds, workerId],
-    }))
+        : [...prev.assignedWorkerIds, workerId]
+
+      return {
+        ...prev,
+        assignedWorkerIds: nextAssigned,
+        taskLeadId: nextAssigned.includes(prev.taskLeadId) ? prev.taskLeadId : (nextAssigned[0] || ''),
+      }
+    })
   }
 
   /**
@@ -150,25 +95,6 @@ export default function TaskFormModal({
       const payload = {
         ...form,
         title: form.title || `${selectedProperty?.name || 'Property'} - Turnover Cleaning`,
-      }
-
-      if (!selectedTask) {
-        const selectedChecklist = checklist
-          .filter((item) => item.selected && item.title.trim())
-          .map((item, index) => ({
-            area: item.area,
-            title: item.title.trim(),
-            required: item.required,
-            sortOrder: index + 1,
-          }))
-
-        if (!selectedChecklist.length) {
-          setError('Select at least one checklist item.')
-          setSaving(false)
-          return
-        }
-
-        payload.checklistItems = selectedChecklist
       }
 
       await onSave(payload)
@@ -276,6 +202,26 @@ export default function TaskFormModal({
             ))}
           </div>
 
+          {form.assignedWorkerIds.length >= 2 ? (
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">Task Lead</span>
+              <select
+                value={form.taskLeadId}
+                onChange={(event) => setForm((prev) => ({ ...prev, taskLeadId: event.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base"
+              >
+                <option value="">Select lead</option>
+                {workers
+                  .filter((worker) => form.assignedWorkerIds.includes(worker.id))
+                  .map((worker) => (
+                    <option key={worker.id} value={worker.id}>
+                      {worker.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ) : null}
+
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Manager Notes</span>
             <textarea
@@ -287,70 +233,36 @@ export default function TaskFormModal({
           </label>
 
           {!selectedTask ? (
-            <div className="space-y-3 rounded-xl border border-slate-200 p-3">
-              <p className="text-sm font-medium text-slate-700">Checklist</p>
-              {AREA_ORDER.map((area) => {
-                const areaItems = checklist.filter((item) => item.area === area)
-                return (
-                  <div key={area} className="rounded-xl border border-slate-200 p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="font-[Manrope] text-sm font-semibold text-slate-900">{area}</p>
-                      <button
-                        type="button"
-                        onClick={() => addCustomChecklistItem(area)}
-                        className="min-h-[44px] rounded-xl border border-blue-600 px-3 py-2 text-xs font-semibold text-blue-600"
-                      >
-                        Add custom item
-                      </button>
-                    </div>
+            <div className="rounded-xl bg-slate-50 p-3">
+              <div className="mb-1 flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-700">Checklist Preview</p>
+                {form.propertyId ? (
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/admin/properties/${form.propertyId}/checklist`, '_blank')}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Edit checklist ↗
+                  </button>
+                ) : null}
+              </div>
 
-                    <div className="space-y-2">
-                      {areaItems.map((item) => (
-                        <div key={item.id} className="rounded-xl border border-slate-200 p-3">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <label className="flex min-h-[44px] items-center gap-2 text-xs font-semibold text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={item.selected}
-                                onChange={() => toggleChecklistSelected(item.id)}
-                                className="h-5 w-5"
-                              />
-                              Include
-                            </label>
-
-                            <label className="flex min-h-[44px] items-center gap-2 text-xs font-semibold text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={item.required}
-                                onChange={() => toggleChecklistRequired(item.id)}
-                                className="h-5 w-5"
-                              />
-                              Required
-                            </label>
-
-                            {item.custom ? (
-                              <button
-                                type="button"
-                                onClick={() => removeCustomChecklistItem(item.id)}
-                                className="ml-auto min-h-[44px] rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white"
-                              >
-                                Delete
-                              </button>
-                            ) : null}
-                          </div>
-
-                          <input
-                            value={item.title}
-                            onChange={(event) => updateChecklistTitle(item.id, event.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base"
-                            placeholder="Checklist item"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+              {propertyChecklist?.areas?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {propertyChecklist.areas.map((area) => (
+                    <span
+                      key={area.area}
+                      className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600"
+                    >
+                      {area.area} ({area.items.length})
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600">
+                  No checklist set up for this property yet. Workers will have an empty checklist.
+                </p>
+              )}
             </div>
           ) : null}
         </div>

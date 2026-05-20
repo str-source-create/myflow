@@ -15,7 +15,8 @@ export const getTimezone = () => {
     const s = JSON.parse(localStorage.getItem('cf_settings') || '{}')
     return s.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
   } catch {
-    return 'UTC'
+    // Fallback to the browser timezone when settings are unavailable.
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
   }
 }
 

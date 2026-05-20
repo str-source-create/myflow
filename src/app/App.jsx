@@ -11,7 +11,6 @@ import { AdminProvider } from '../context/AdminContext'
 import AcceptInvitePage from '../pages/AcceptInvitePage'
 import AddPropertyPage from '../pages/AddPropertyPage'
 import AddWorkerPage from '../pages/AddWorkerPage'
-import CreateTaskPage from '../pages/CreateTaskPage'
 import DashboardPage from '../pages/DashboardPage'
 import EditPropertyPage from '../pages/EditPropertyPage'
 import InviteManagerPage from '../pages/InviteManagerPage'
@@ -20,6 +19,7 @@ import CalendarPage from '../pages/CalendarPage'
 import AttendancePage from '../pages/AttendancePage'
 import PropertiesPage from '../pages/PropertiesPage'
 import PropertyDetailPage from '../pages/PropertyDetailPage'
+import PropertyChecklistPage from '../pages/PropertyChecklistPage'
 import PropertyStandardsPage from '../pages/PropertyStandardsPage'
 import SettingsPage from '../pages/SettingsPage'
 import SubmissionReviewPage from '../pages/SubmissionReviewPage'
@@ -58,10 +58,12 @@ export default function App() {
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="properties/add" element={<AddPropertyPage />} />
           <Route path="properties/:id" element={<PropertyDetailPage />} />
+          <Route path="properties/:id/checklist" element={<PropertyChecklistPage />} />
           <Route path="properties/:id/edit" element={<EditPropertyPage />} />
           <Route path="properties/:id/standards" element={<PropertyStandardsPage />} />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="tasks/create" element={<CreateTaskPage />} />
+          {/* Task creation is centralized in Calendar; keep legacy path as redirect. */}
+          <Route path="tasks/create" element={<Navigate to="/admin/calendar" replace />} />
           <Route path="tasks/:id" element={<TaskDetailPage />} />
           <Route path="workers" element={<WorkersPage />} />
           <Route path="workers/add" element={<AddWorkerPage />} />

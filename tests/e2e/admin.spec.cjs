@@ -90,12 +90,11 @@ test.describe('Admin Tasks', () => {
     await expect(page.getByRole('heading', { name: /tasks/i, level: 1 })).toBeVisible()
   })
 
-  test('create task page has checklist checkboxes', async ({ page }) => {
+  test('legacy create task route redirects to calendar', async ({ page }) => {
     await loginAsAdmin(page)
     await page.goto('/admin/tasks/create')
-    // The checklist must use checkboxes, not a plain textarea
-    const checkboxes = page.locator('input[type="checkbox"]')
-    await expect(checkboxes.first()).toBeVisible()
+    // Task creation is centralized in calendar.
+    await expect(page).toHaveURL(/admin\/calendar/)
   })
 })
 

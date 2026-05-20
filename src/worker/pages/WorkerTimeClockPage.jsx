@@ -4,13 +4,39 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useWorker } from '../context/WorkerContext'
+import { getTimezone } from '../../utils/timezone'
 
 /**
  * Formats nullable Date-like values for display.
  */
 function formatTime(value) {
   if (!value) return '--:--'
-  return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  // Time clock times must respect the app timezone set by admin settings.
+  return new Date(value).toLocaleTimeString('en-US', {
+    timeZone: getTimezone(),
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/** Formats the live clock text in the configured app timezone. */
+function formatNowTime() {
+  return new Date().toLocaleTimeString('en-US', {
+    timeZone: getTimezone(),
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
+/** Formats the header date in the configured app timezone. */
+function formatTodayLabel() {
+  return new Date().toLocaleDateString('en-US', {
+    timeZone: getTimezone(),
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 /**
@@ -25,7 +51,7 @@ function formatDuration(minutes) {
 
 export default function WorkerTimeClockPage() {
   const { currentUser, clockIn, clockOut, getTodayAttendance } = useWorker()
-  const [nowText, setNowText] = useState(new Date().toLocaleTimeString())
+  const [nowText, setNowText] = useState(formatNowTime())
   const [record, setRecord] = useState(null)
   const [notes, setNotes] = useState('')
   const [showClockOutForm, setShowClockOutForm] = useState(false)
@@ -48,7 +74,7 @@ export default function WorkerTimeClockPage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setNowText(new Date().toLocaleTimeString())
+      setNowText(formatNowTime())
     }, 1000)
 
     return () => clearInterval(interval)
@@ -110,7 +136,7 @@ export default function WorkerTimeClockPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="font-[Manrope] text-xl font-bold text-slate-900">{currentUser?.name || 'Worker'}</p>
         <p className="mt-1 text-sm text-slate-500">
-          {new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+          {formatTodayLabel()}
         </p>
         <p className="mt-2 text-sm text-slate-600">Current time: {nowText}</p>
 
