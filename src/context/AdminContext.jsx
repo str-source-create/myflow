@@ -144,6 +144,7 @@ function normalizeWorker(worker) {
     name: worker.name,
     email: worker.email,
     phone: worker.phone || '',
+    role: worker.role || 'worker',
     active: Boolean(worker.active),
     tasksCompleted: worker.tasksCompleted || 0,
     rating: 5,
@@ -288,6 +289,8 @@ export function AdminProvider({ children }) {
         setAdmin(null)
         localStorage.removeItem('cf_admin_user')
         localStorage.removeItem('cf_admin_token')
+        // Flag consumed by LoginPage to show "session expired" message.
+        localStorage.setItem('cf_session_expired', 'true')
         window.location.replace('/admin/login')
       }
     }

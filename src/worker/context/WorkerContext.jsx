@@ -221,6 +221,8 @@ export function WorkerProvider({ children }) {
         setCurrentUser(null)
         localStorage.removeItem('cf_worker_user')
         localStorage.removeItem('cf_worker_token')
+        // Flag consumed by worker login page to show "session expired" message.
+        localStorage.setItem('cf_session_expired', 'true')
         window.location.replace('/worker/login')
       }
     }

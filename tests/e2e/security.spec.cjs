@@ -6,6 +6,7 @@
  * What is tested:
  *   - Every protected admin route redirects to /admin/login when no token is present
  *   - Every protected worker route redirects to /worker/login when no token is present
+ *   - Public routes (/admin/setup) are reachable without authentication
  *   - API endpoints return 401 when called without a token
  *   - API endpoints return 401 when called with a fake/invalid token
  */
@@ -69,4 +70,19 @@ test('API: GET /api/properties with fake token returns 401', async ({ request })
 test('API: GET /api/users with no token returns 401', async ({ request }) => {
   const res = await request.get('http://localhost:3000/api/users')
   expect(res.status()).toBe(401)
+})
+
+// ─── Public routes ────────────────────────────────────────────────────────────
+// /admin/setup is intentionally public — first-time setup when no admin exists.
+test('Public: /admin/setup is reachable without authentication', async ({ page }) => {
+  await page.goto('/admin/setup')
+  // Should NOT redirect to login — stays on /admin/setup or shows content
+  await expect(page).not.toHaveURL(/admin\/login/)
+})
+
+// ─── Setup API is public ──────────────────────────────────────────────────────
+test('API: GET /api/auth/setup-status is accessible without a token', async ({ request }) => {
+  const res = await request.get('http://localhost:3000/api/auth/setup-status')
+  // Returns 200 whether or not admin exists — no auth required
+  expect(res.status()).toBe(200)
 })

@@ -14,7 +14,15 @@ const userSchema = new mongoose.Schema({
   role:           { type: String, enum: ['admin', 'worker'], default: 'worker' },
   active:         { type: Boolean, default: true },
   tasksCompleted: { type: Number, default: 0 },
-  streak:         { type: Number, default: 0 }
+  streak:         { type: Number, default: 0 },
+  // ── Security fields ────────────────────────────────────────────────────────
+  // Track failed login attempts; lock the account after 5 consecutive failures.
+  failedLoginAttempts: { type: Number, default: 0 },
+  // Non-null date means the account is locked until that moment.
+  lockedUntil:         { type: Date,   default: null },
+  // Metadata recorded on each successful login for admin audit in Settings.
+  lastLoginAt:         { type: Date,   default: null },
+  lastLoginIp:         { type: String, default: null },
 }, { timestamps: true })
 
 // Hash password before saving

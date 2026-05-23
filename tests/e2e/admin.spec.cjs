@@ -20,7 +20,9 @@ test.describe('Admin Login', () => {
 
   test('wrong password shows an error message', async ({ page }) => {
     await page.goto('/admin/login')
-    await page.locator('input[type="email"]').fill('admin@cleanflow.com')
+    // Use a non-existent email so failed attempts never accumulate against the
+    // real seed account across parallel projects or repeated test runs.
+    await page.locator('input[type="email"]').fill('nobody@cleanflow.com')
     await page.locator('input[type="password"]').fill('wrongpassword')
     await page.getByRole('button', { name: /sign in/i }).click()
     // Backend returns 'Invalid email or password' (not 'Incorrect')

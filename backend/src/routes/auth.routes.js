@@ -13,5 +13,8 @@ router.post('/login',          authCtrl.login)
 router.post('/invite',         protect, requireAdmin, authCtrl.sendInvite)
 router.get('/invite/:token',   authCtrl.validateInvite)
 router.post('/accept-invite',  authCtrl.acceptInvite)
+// First-time setup — public, one-time use. Returns 403 once any admin exists.
+router.get('/setup-status',    authCtrl.checkSetup)
+router.post('/create-admin',   authCtrl.createFirstAdmin)
 
 module.exports = router

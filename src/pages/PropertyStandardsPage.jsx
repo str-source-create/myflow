@@ -180,18 +180,21 @@ export default function PropertyStandardsPage() {
               <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
                 {standard.referencePhotoUrl ? (
                   <div className="space-y-2">
-                    {/* Click to open lightbox */}
-                    <button
-                      type="button"
-                      onClick={() => setLightboxUrl(standard.referencePhotoUrl)}
-                      className="block w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                    >
-                      <img
-                        src={standard.referencePhotoUrl}
-                        alt={standard.areaName}
-                        className="h-48 w-full object-cover"
-                      />
-                    </button>
+                    {/* Reference photo — portrait 3:4 aspect ratio, click to lightbox */}
+                    <div className="relative w-full overflow-hidden rounded-xl bg-slate-100" style={{ aspectRatio: '3 / 4' }}>
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(standard.referencePhotoUrl)}
+                        className="absolute inset-0 w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      >
+                        <img
+                          src={standard.referencePhotoUrl}
+                          alt={standard.areaName}
+                          className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                        />
+                      </button>
+                    </div>
+                    <p className="text-center text-xs text-slate-500">Reference photo</p>
                     <button
                       type="button"
                       onClick={() => deleteReferencePhoto(property.id, standard.id)}
@@ -202,7 +205,14 @@ export default function PropertyStandardsPage() {
                   </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-sm text-slate-500">Upload Reference Photo</p>
+                    {/* Placeholder maintains the same portrait aspect ratio */}
+                    <div
+                      className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-100 flex flex-col items-center justify-center text-slate-400 gap-2 mb-2"
+                      style={{ aspectRatio: '3 / 4' }}
+                    >
+                      <span className="text-3xl">📷</span>
+                      <span className="text-xs font-medium">No reference photo</span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => inputRefs.current[standard.id]?.click()}

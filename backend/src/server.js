@@ -9,7 +9,15 @@ const connectDB = require('./config/db')
 
 const PORT = process.env.PORT || 3000
 
-connectDB().then(() => {
+connectDB().then(async () => {
+  // Dev mode: clear any stale lockout counters left by previous test runs so
+  // the Playwright suite always starts against unlocked seed accounts.
+  if (process.env.NODE_ENV !== 'production') {
+    const User = require('./models/User.model')
+    await User.updateMany({}, { $set: { failedLoginAttempts: 0, lockedUntil: null } })
+    console.log('Dev mode: reset account lockout counters')
+  }
+
   app.listen(PORT, () => {
     console.log('==================================')
     console.log(`CleanFlow API running on http://localhost:${PORT}`)

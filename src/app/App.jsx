@@ -21,6 +21,7 @@ import PropertiesPage from '../pages/PropertiesPage'
 import PropertyDetailPage from '../pages/PropertyDetailPage'
 import PropertyChecklistPage from '../pages/PropertyChecklistPage'
 import PropertyStandardsPage from '../pages/PropertyStandardsPage'
+import SetupPage from '../pages/SetupPage'
 import SettingsPage from '../pages/SettingsPage'
 import SubmissionReviewPage from '../pages/SubmissionReviewPage'
 import SubmissionsPage from '../pages/SubmissionsPage'
@@ -40,6 +41,7 @@ export default function App() {
       <Routes>
         {/* Public routes — no authentication required */}
         <Route path="/admin/login" element={<LoginPage />} />
+        <Route path="/admin/setup" element={<SetupPage />} />
         <Route path="/admin/accept-invite/:token" element={<AcceptInvitePage />} />
 
         {/* Protected admin routes */}

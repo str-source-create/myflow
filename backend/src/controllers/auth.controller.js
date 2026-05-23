@@ -19,13 +19,46 @@ exports.login = async (req, res, next) => {
 
     const user = await User.findOne({ email: email.toLowerCase().trim() })
     if (!user) {
+      // Return generic message — don't reveal whether email exists.
       return sendResponse(res, 401, false, 'Invalid email or password')
     }
 
-    const isMatch = await user.comparePassword(password)
-    if (!isMatch) {
-      return sendResponse(res, 401, false, 'Invalid email or password')
+    // Check if account is temporarily locked due to too many failed attempts.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((user.lockedUntil - Date.now()) / 60000)
+      return sendResponse(res, 423, false,
+        `Account temporarily locked due to too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.`
+      )
     }
+
+    const isMatch = await user.comparePassword(password)
+
+    if (!isMatch) {
+      // Increment failed attempt counter toward lockout threshold.
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1
+
+      // Lock account for 30 minutes after 5 consecutive failures.
+      if (user.failedLoginAttempts >= 5) {
+        user.lockedUntil = new Date(Date.now() + 30 * 60 * 1000)
+        await user.save()
+        return sendResponse(res, 423, false,
+          'Too many failed attempts. Account locked for 30 minutes.'
+        )
+      }
+
+      await user.save()
+      const attemptsLeft = 5 - user.failedLoginAttempts
+      return sendResponse(res, 401, false,
+        `Invalid email or password. ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining before lockout.`
+      )
+    }
+
+    // Successful login — reset lockout counter and record metadata.
+    user.failedLoginAttempts = 0
+    user.lockedUntil  = null
+    user.lastLoginAt  = new Date()
+    user.lastLoginIp  = req.ip || req.headers['x-forwarded-for'] || null
+    await user.save()
 
     if (!user.active) {
       return sendResponse(res, 403, false, 'Your account has been deactivated. Contact your manager.')
@@ -133,5 +166,48 @@ exports.acceptInvite = async (req, res, next) => {
 
     const jwtToken = generateToken(user._id, user.role)
     return sendResponse(res, 201, true, 'Account created successfully', { token: jwtToken, user })
+  } catch (err) { next(err) }
+}
+
+/**
+ * checkSetup — returns whether an admin account already exists.
+ * Used by the frontend SetupPage to show first-time setup when no admin is found.
+ * Public endpoint — no authentication required.
+ */
+exports.checkSetup = async (req, res, next) => {
+  try {
+    const adminExists = await User.findOne({ role: 'admin' })
+    return sendResponse(res, 200, true, 'Setup status', {
+      setupRequired: !adminExists,
+    })
+  } catch (err) { next(err) }
+}
+
+/**
+ * createFirstAdmin — creates the first admin account (one-time use only).
+ * If any admin account already exists this endpoint returns 403.
+ * After the first admin is created, the invite system is used for subsequent admins.
+ */
+exports.createFirstAdmin = async (req, res, next) => {
+  try {
+    const adminExists = await User.findOne({ role: 'admin' })
+    if (adminExists) {
+      return sendResponse(res, 403, false,
+        'An admin account already exists. Use the invite system to add more admins.'
+      )
+    }
+
+    const { name, email, password } = req.body
+    if (!name || !email || !password) {
+      return sendResponse(res, 400, false, 'Name, email, and password are required')
+    }
+    if (password.length < 8) {
+      return sendResponse(res, 400, false, 'Password must be at least 8 characters')
+    }
+
+    const admin = await User.create({ name: name.trim(), email, password, role: 'admin', active: true })
+    const token = generateToken(admin._id, admin.role)
+
+    return sendResponse(res, 201, true, 'Admin account created', { token, user: admin })
   } catch (err) { next(err) }
 }

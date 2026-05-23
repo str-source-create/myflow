@@ -61,34 +61,38 @@ export default function WorkerSubmitPage() {
   const requiredChecklistTotal = task.checklistItems.filter((item) => item.required).length
   const requiredChecklistCompleted = task.checklistItems.filter((item) => item.required && item.completed).length
 
+  // Standards proof count — kept for informational display only, not a submit blocker.
   const requiredStandardsTotal = task.standards.filter((item) => item.required).length
   const requiredStandardsUploaded = task.standards.filter((item) => item.required && item.proofPhoto).length
 
-  const requiredAfterPhotos = Math.max(1, requiredStandardsTotal)
+  // After photos count — informational only. Photos are optional since manager verification
+  // can happen via checklist + notes even without photos.
   const uploadedAfterPhotos = task.photos.after.length
 
+  /**
+   * Submit validation — photos are now OPTIONAL.
+   *
+   * Required to submit:
+   * - All REQUIRED checklist items completed ← still mandatory
+   * - Guest-ready confirmation checked       ← still mandatory
+   * - Keys confirmation checked              ← still mandatory
+   *
+   * Optional (shown as tips, not blockers):
+   * - After photos       ← encouraged but not required
+   * - Standard proof photos ← encouraged but not required
+   */
   const canSubmit =
-    uploadedAfterPhotos >= requiredAfterPhotos &&
-    requiredStandardsUploaded === requiredStandardsTotal &&
     requiredChecklistCompleted === requiredChecklistTotal &&
     confirmGuestReady &&
     confirmKeysReturned
 
   const disabledReason = useMemo(() => {
-    if (uploadedAfterPhotos < requiredAfterPhotos) {
-      return 'Upload required after photos before submitting.'
-    }
-
-    if (requiredStandardsUploaded !== requiredStandardsTotal) {
-      return 'Upload required standards proof photos before submitting.'
-    }
-
     if (requiredChecklistCompleted !== requiredChecklistTotal) {
-      return 'Complete all required checklist items before submitting.'
+      return `Complete all required checklist items first (${requiredChecklistCompleted}/${requiredChecklistTotal} done)`
     }
 
     if (!confirmGuestReady || !confirmKeysReturned) {
-      return 'Tick both confirmations before submitting.'
+      return 'Please tick both confirmation checkboxes above'
     }
 
     return ''
@@ -139,18 +143,42 @@ export default function WorkerSubmitPage() {
       <TaskTimer startedAt={task.startedAt} endedAt={task.endedAt} status={task.status} />
 
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {/* Checklist — still required to submit */}
         <SummaryRow
           ok={requiredChecklistCompleted === requiredChecklistTotal}
           label={`All required checklist items completed (${requiredChecklistCompleted} / ${requiredChecklistTotal})`}
         />
-        <SummaryRow
-          ok={uploadedAfterPhotos >= requiredAfterPhotos}
-          label={`Required proof photos uploaded (${Math.min(uploadedAfterPhotos, requiredAfterPhotos)} / ${requiredAfterPhotos})`}
-        />
-        <SummaryRow
-          ok={requiredStandardsUploaded === requiredStandardsTotal}
-          label={`Standards proof photos uploaded (${requiredStandardsUploaded} / ${requiredStandardsTotal})`}
-        />
+
+        {/* After photos — optional; show count if present, soft tip if absent */}
+        {uploadedAfterPhotos > 0 ? (
+          <SummaryRow
+            ok={true}
+            label={`After photos uploaded (${uploadedAfterPhotos} photo${uploadedAfterPhotos !== 1 ? 's' : ''})`}
+          />
+        ) : (
+          <div className="flex items-start gap-2 py-1">
+            <span className="mt-0.5 flex-shrink-0 text-amber-500">ℹ</span>
+            <p className="text-sm text-amber-700">
+              <span className="font-medium">No after photos yet</span>
+              {' '}— photos help the manager verify quality but are not required.
+            </p>
+          </div>
+        )}
+
+        {/* Standards proof photos — optional; show count if any uploaded */}
+        {requiredStandardsUploaded > 0 ? (
+          <SummaryRow
+            ok={true}
+            label={`Standards proof photos (${requiredStandardsUploaded} / ${requiredStandardsTotal} uploaded)`}
+          />
+        ) : (
+          <div className="flex items-start gap-2 py-1">
+            <span className="mt-0.5 flex-shrink-0 text-blue-400">ℹ</span>
+            <p className="text-sm text-blue-600">
+              Reference standard proofs are optional — upload them if time allows.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

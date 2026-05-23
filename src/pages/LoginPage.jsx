@@ -2,7 +2,7 @@
  * LoginPage.jsx
  * Admin authentication screen backed by POST /api/auth/login.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import { apiRequest } from '../lib/api'
@@ -15,6 +15,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  // Session-expired message shown when redirected from an expired auth session.
+  const [sessionMsg, setSessionMsg] = useState('')
+
+  // Detect if the user was redirected here due to an expired token.
+  useEffect(() => {
+    if (localStorage.getItem('cf_session_expired') === 'true') {
+      setSessionMsg('Your session has expired. Please sign in again.')
+      localStorage.removeItem('cf_session_expired')
+    }
+  }, [])
 
   if (admin) {
     return <Navigate to="/admin/dashboard" replace />
@@ -62,6 +72,13 @@ export default function LoginPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">CleanFlow</p>
         <h1 className="mt-2 font-[Manrope] text-2xl font-bold text-slate-900">Admin Login</h1>
         <p className="mt-1 text-sm text-slate-500">Sign in to manage properties, tasks, and submissions.</p>
+
+        {/* Session-expired banner — shown after automatic token expiry redirect */}
+        {sessionMsg && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            {sessionMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>

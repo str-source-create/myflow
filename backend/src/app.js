@@ -5,6 +5,7 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
+const rateLimit = require('express-rate-limit')
 const { initSentry, setupSentryErrorHandler } = require('./config/sentry')
 
 // Sentry must be initialised before the Express app is configured
@@ -45,6 +46,23 @@ app.use(cors({
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+/**
+ * Login rate limiter.
+ * Allows 10 login attempts per IP per 15 minutes.
+ * After 10 failures the client receives 429 Too Many Requests.
+ * This prevents automated brute-force password attacks.
+ */
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,                   // max 10 attempts per window per IP
+  message: {
+    success: false,
+    message: 'Too many login attempts. Please wait 15 minutes and try again.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 // Health check — open this in browser to confirm API is running
 app.get('/', (req, res) => {
   res.json({
@@ -53,6 +71,13 @@ app.get('/', (req, res) => {
     version: '1.0.0'
   })
 })
+
+// Rate limiter applied to login in production only.
+// Dev / CI test suites fire many concurrent logins that would quickly exhaust
+// the 10-req window and cause false 429 failures.
+if (process.env.NODE_ENV === 'production') {
+  app.use('/api/auth/login', loginLimiter)
+}
 
 // All API routes
 app.use('/api/auth',        require('./routes/auth.routes'))

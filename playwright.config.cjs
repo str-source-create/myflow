@@ -12,12 +12,23 @@
  *   npx playwright test worker       — run only worker tests
  *
  * Prerequisites:
- *   Both the frontend (port 5173) and backend (port 3000) must be running.
+ *   The backend (port 3000) must be running before starting tests.
+ *   The frontend (port 5173) is auto-started by Playwright if not already running.
  */
 const { defineConfig, devices } = require('@playwright/test')
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
+
+  // Auto-start the Vite dev server if it isn't already listening on port 5173.
+  // Set reuseExistingServer so manual `npm run dev` sessions are respected.
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
+    timeout: 60_000,
+  },
+
 
   // Run tests in the order they are defined within each file
   fullyParallel: false,

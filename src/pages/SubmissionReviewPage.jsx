@@ -165,44 +165,64 @@ export default function SubmissionReviewPage() {
           const refUrl = standard.referencePhotoUrl
           const proofUrl = proofByStandardId.get(String(standard.id))?.photoUrl
           return (
-            <div key={standard.id} className="grid gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference</p>
-                {refUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setLightbox({ photos: [refUrl], index: 0 })}
-                    className="mt-1 block w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            <div key={standard.id} className="rounded-xl border border-slate-200 p-3">
+              <p className="mb-2 text-sm font-medium text-slate-700">{standard.areaName}</p>
+              {/* Side-by-side comparison — both columns use 3:4 portrait ratio so they align */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Reference photo */}
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Reference</p>
+                  <div
+                    className="relative overflow-hidden rounded-xl bg-slate-100"
+                    style={{ aspectRatio: '3 / 4' }}
                   >
-                    <img
-                      src={refUrl}
-                      alt={`${standard.areaName} reference`}
-                      className="h-24 w-full object-cover"
-                    />
-                  </button>
-                ) : (
-                  <div className="mt-1 h-24 rounded-xl border border-dashed border-slate-300 bg-slate-50" />
-                )}
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cleaner Proof</p>
-                {proofUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setLightbox({ photos: [proofUrl], index: 0 })}
-                    className="mt-1 block w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    {refUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setLightbox({ photos: [refUrl], index: 0 })}
+                        className="absolute inset-0 w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      >
+                        <img
+                          src={refUrl}
+                          alt={`${standard.areaName} reference`}
+                          className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                        />
+                      </button>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <p className="text-xs text-slate-400">No reference set</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Worker proof photo */}
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Cleaner Proof</p>
+                  <div
+                    className="relative overflow-hidden rounded-xl bg-slate-50 border-2 border-dashed border-slate-200"
+                    style={{ aspectRatio: '3 / 4' }}
                   >
-                    <img
-                      src={proofUrl}
-                      alt={`${standard.areaName} proof`}
-                      className="h-24 w-full object-cover"
-                    />
-                  </button>
-                ) : (
-                  <div className="mt-1 h-24 rounded-xl border border-dashed border-slate-300 bg-slate-50" />
-                )}
+                    {proofUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setLightbox({ photos: [proofUrl], index: 0 })}
+                        className="absolute inset-0 w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      >
+                        <img
+                          src={proofUrl}
+                          alt={`${standard.areaName} proof`}
+                          className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                        />
+                      </button>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <p className="text-xs text-slate-400">No proof uploaded</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p className="text-sm text-slate-600 sm:col-span-2">{standard.areaName}</p>
             </div>
           )
         })}

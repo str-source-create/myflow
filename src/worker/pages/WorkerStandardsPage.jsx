@@ -104,18 +104,21 @@ export default function WorkerStandardsPage() {
               </div>
 
               {standard.referencePhotoUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setRefLightbox(standard.referencePhotoUrl)}
-                  className="block w-full overflow-hidden rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label="View reference photo"
-                >
-                  <img
-                    src={standard.referencePhotoUrl}
-                    alt={`${standard.areaName} reference`}
-                    className="h-36 w-full object-cover"
-                  />
-                </button>
+                /* Reference photo — portrait 3:4 aspect ratio, tap to lightbox */
+                <div className="relative w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100" style={{ aspectRatio: '3 / 4' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRefLightbox(standard.referencePhotoUrl)}
+                    className="absolute inset-0 w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    aria-label="View reference photo"
+                  >
+                    <img
+                      src={standard.referencePhotoUrl}
+                      alt={`${standard.areaName} reference`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                </div>
               ) : (
                 <CameraPlaceholder />
               )}
