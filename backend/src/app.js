@@ -13,35 +13,56 @@ initSentry()
 
 const app = express()
 
-// Production-grade CORS: dev allows any localhost, production uses strict whitelist
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean)
-  : [] // Dev mode uses dynamic check below
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman, etc)
+/**
+ * CORS configuration — production grade.
+ *
+ * Accepts requests from:
+ * 1. localhost (local development)
+ * 2. Any *.coolify.app subdomain (Coolify deployment)
+ * 3. Any *.vercel.app subdomain (if frontend is on Vercel)
+ * 4. FRONTEND_URL from environment variable (custom domain)
+ * 5. ngrok domains (for mobile testing)
+ *
+ * In production set FRONTEND_URL to your actual domain.
+ */
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (Postman, mobile apps, server-to-server)
     if (!origin) return callback(null, true)
 
-    // Development: allow any localhost port
-    if (process.env.NODE_ENV !== 'production') {
-      if (origin.match(/^http:\/\/localhost:\d+$/)) {
-        return callback(null, true)
-      }
-    }
+    const allowedPatterns = [
+      /^https?:\/\/localhost/,
+      /\.coolify\.app$/,
+      /\.vercel\.app$/,
+      /\.ngrok-free\.app$/,
+      /\.ngrok\.io$/,
+      /\.onrender\.com$/,
+    ]
 
-    // Production: strict whitelist
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true)
-    }
+    const explicitAllowed = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ].filter(Boolean)
 
-    // Blocked
-    callback(new Error(`Origin ${origin} not allowed by CORS policy`))
+    const isAllowed =
+      explicitAllowed.includes(origin) ||
+      allowedPatterns.some(pattern => pattern.test(origin))
+
+    if (isAllowed) {
+      callback(null, true)
+    } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`)
+      callback(null, false) // Don't throw — just block silently
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}))
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
+}
+
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions)) // Handle preflight requests
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -63,12 +84,18 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 })
 
-// Health check — open this in browser to confirm API is running
+/**
+ * Health check endpoint.
+ * Coolify uses this to verify the app is running correctly.
+ * Must return 200 OK with a JSON response.
+ * Route: GET /
+ */
 app.get('/', (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     message: 'CleanFlow API is running',
-    version: '1.0.0'
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
   })
 })
 

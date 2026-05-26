@@ -1,0 +1,33 @@
+# Dependencies — installed fresh in Docker
+node_modules/
+
+# Environment variables — NEVER include in Docker image
+.env
+.env.*
+!.env.example
+
+# Development files
+*.log
+npm-debug.log*
+.npm
+
+# Test files
+tests/
+coverage/
+
+# Git
+.git
+.gitignore
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Uploads (use Cloudinary in production)
+uploads/

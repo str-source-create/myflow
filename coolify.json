@@ -1,0 +1,38 @@
+{
+  "name": "CleanFlow",
+  "description": "Short-term rental cleaning management app",
+  "services": {
+    "frontend": {
+      "type": "dockerfile",
+      "dockerfile": "Dockerfile",
+      "port": 80,
+      "healthcheck": "/",
+      "buildArgs": {
+        "VITE_API_URL": "SET_THIS_TO_YOUR_BACKEND_URL/api"
+      }
+    },
+    "backend": {
+      "type": "dockerfile",
+      "dockerfile": "backend/Dockerfile",
+      "context": "backend",
+      "port": 3000,
+      "healthcheck": "/",
+      "envVariables": [
+        "PORT",
+        "NODE_ENV",
+        "MONGODB_URI",
+        "JWT_SECRET",
+        "JWT_EXPIRES_IN",
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "EMAIL_HOST",
+        "EMAIL_PORT",
+        "EMAIL_USER",
+        "EMAIL_PASS",
+        "EMAIL_FROM",
+        "FRONTEND_URL"
+      ]
+    }
+  }
+}
