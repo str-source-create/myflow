@@ -55,7 +55,9 @@ RUN printf 'server {\n\
 EXPOSE 80
 
 # Health check for Coolify
+# Use 127.0.0.1, not localhost — Alpine resolves localhost to ::1 (IPv6)
+# but nginx only listens on 0.0.0.0 (IPv4), causing connection refused
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:80/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

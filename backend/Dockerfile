@@ -23,9 +23,10 @@ COPY . .
 EXPOSE 3000
 
 # Health check — Coolify uses this to verify the app is running
-# Checks every 30s, waits 30s before first check, 10s timeout
+# Use 127.0.0.1, not localhost — Alpine resolves localhost to ::1 (IPv6)
+# but Node.js listens on 0.0.0.0 (IPv4), causing connection refused
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1
 
 # Start the server
 CMD ["node", "src/server.js"]
