@@ -8,7 +8,7 @@
       "port": 80,
       "healthcheck": "/",
       "buildArgs": {
-        "VITE_API_URL": "SET_THIS_TO_YOUR_BACKEND_URL/api"
+        "VITE_API_URL": "http://rpfiz9ae506vsa759xyetroj.141.136.44.64.sslip.io/api"
       }
     },
     "backend": {
